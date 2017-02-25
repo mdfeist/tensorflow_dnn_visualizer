@@ -1,7 +1,8 @@
 import shutil
 import os
 import numpy as np
-import cv2
+import scipy.misc
+#import cv2
 import tensorflow as tf
 import dnn_visualizer.visualizer_saver as dv
 
@@ -147,8 +148,8 @@ writer = tf.summary.FileWriter(LOGDIR + hparam)
 writer.add_graph(sess.graph)
 
 # Create Embedding Sprite and labels
-sprite = images_to_sprite(mnist.test.images[:1024].reshape(1024, 28, 28, 1), True)
-cv2.imwrite(os.path.join(LOGDIR, 'sprite_1024.png'), sprite)
+sprite = images_to_sprite(mnist.test.images[:1024].reshape(1024, 28, 28), True)
+scipy.misc.imsave(os.path.join(LOGDIR, 'sprite_1024.png'), sprite)
 
 with open(os.path.join(LOGDIR, 'labels_1024.tsv'), 'w') as f:
     for label in mnist.test.labels[:1024]:
@@ -165,7 +166,7 @@ tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
 print "Starting Training ..."
 
-for i in range(101):
+for i in range(2001):
     batch = mnist.train.next_batch(100)
     if i % 10 == 0:
       [train_accuracy, s] = sess.run([accuracy, summ],
@@ -190,9 +191,12 @@ for i in range(101):
 print "Save Visualization ..."
 
 # Save Visualization of CNN
+num_of_samples = 1024
 dv_saver.save_network(sess)
 dv_saver.save_activations(sess,
     feed_dict={
-        x: mnist.test.images[:1024],
-        y: mnist.test.labels[:1024],
-        keep_prob: 1.0})
+        x: mnist.test.images[:num_of_samples],
+        y: mnist.test.labels[:num_of_samples],
+        keep_prob: 1.0},
+    x=mnist.test.images[:num_of_samples],
+    y=mnist.test.labels[:num_of_samples])

@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import scipy.misc
-import cv2
 import tensorflow as tf
 import json
 
@@ -109,18 +108,63 @@ class Visualizer_Saver:
         with open(path, 'w') as outfile:
             json.dump(json.JSONEncoder().encode(json_data), outfile)
 
-    def save_activations(self, session, feed_dict):
+    def save_activations(self, session, feed_dict, x, y):
         json_data = {}
         json_data['layers'] = []
 
         for layer in self._layers:
             json_layer = {}
             json_layer['name'] = layer.name
+            json_layer['activations'] = []
 
             output = session.run(layer.tf_layer, feed_dict=feed_dict)
 
             print layer.tf_layer
-            print output
+            print output.shape
+
+            json_layer['shape'] = output.shape
+
+            if len(output.shape) == 4:
+
+                data = output.transpose(0,3,1,2)
+                data = data.astype(np.float32)
+
+                # Normalize
+                minimum = data.flatten().min()
+                data = data - minimum
+                maximum = data.flatten().max()
+                data = data / maximum
+
+                n = int(np.ceil(np.sqrt(data.shape[1])))
+
+                padding = ((0, 0), (0, n ** 2 - data.shape[1]), (0, 0), (0, 0),)
+                data = np.pad(data, padding, mode='constant',
+                        constant_values=0)
+
+                # Tile the individual thumbnails into an image.
+                data = data.reshape((data.shape[0], n, n) + data.shape[2:])
+                data = data.transpose(0, 1, 3, 2, 4)
+                data = data.reshape((data.shape[0], n * data.shape[2], n * data.shape[4]))
+                data = (data * 255.0).astype(np.uint8)
+                for i in range(data.shape[0]):
+                    json_layer_activations = {}
+
+                    name = str(layer.name).replace('/', '_').replace(':', '-')
+                    path = os.path.join(
+                        self._logdir,
+                        'layer_output_l%d_%s.png' % (i, name))
+
+                    scipy.misc.imsave(path, data[i])
+
+                    json_layer_activations['input'] = i
+                    json_layer_activations['path'] = path
+                    json_layer_activations['image'] = True
+
+                    json_layer['activations'].append(json_layer_activations)
+#            else:
+#                path = path + '.json'
+#                with open(path, 'w') as outfile:
+#                    json.dump(var.tolist(), outfile)
 
             json_data['layers'].append(json_layer)
 
